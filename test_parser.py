@@ -1,9 +1,12 @@
 import os 
 from app.services.parser import DocumentParser
+from app.services.protector import PrivacyShield
 
 def run_test():
     #1. initialize our parser
     parser = DocumentParser()
+
+    shield_masker = PrivacyShield()
 
     #2. point to a pdf file
     test_pdf_path = "data/raw/sample.pdf"
@@ -28,6 +31,15 @@ def run_test():
         print(f'\n--- END OF PREVIEW ---')
 
         print(f'\n Sucess! The document was converted to markdown.')
+
+        print(f"Starting to mask PII...")
+
+        masked_data = shield_masker.mask_sensitive_data(processed_doc.content)
+
+        print(masked_data)
+
+
+
     
     except Exception as e:
         print(f'An error occured during parsing {e}')
