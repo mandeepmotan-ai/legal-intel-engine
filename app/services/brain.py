@@ -1,6 +1,8 @@
 import os 
 from groq import Groq
 from dotenv import load_dotenv 
+import json
+from app.models.contract import ContractAuditReport
 
 
 load_dotenv(override=True)
@@ -12,30 +14,40 @@ class ContractBrain():
         #we use llama4 Scout for it's high speed reasoning 
         self.model = "meta-llama/llama-4-scout-17b-16e-instruct"
 
-    def analyze_contract(self, contract_content: str):
+    def analyze_contract_structured(self, contract_content: str) -> ContractAuditReport:
+        # We define a simpler version of the schema for the prompt
+        # but keep the actual Pydantic model for validation.
+        
         system_prompt = """
-            You are a Senior Legal AI Auditor with 20 years of experience in contract law.
-            Your goal is to analyze the provided contract (in Markdown) and identify:
-            1. TOP 3 RISKS: Specific clauses that are predatory or dangerous for the user.
-            2. TOP 3 ADVANTAGES: Clauses that benefit the user.
-            3. MISSING CLAUSES: Standard legal protections that are absent.
+        You are a Senior Legal AI Auditor. Analyze the contract and return a JSON object.
         
-            RULES:
-            - Use a professional, objective tone.
-            - Be extremely specific (mention section numbers if available).
-            - IMPORTANT: Add a disclaimer at the end stating you are an AI, not a lawyer.
-            """
-        
-        user_prompt = f"Please analyze this contract content: \n\n{contract_content}"
+        The JSON must have these exact keys:
+        - "summary": (string) A brief overview of the contract.
+        - "risks": (list of objects) Each object must have "clause_text", "risk_level" (High/Medium/Low), and "explanation".
+        - "pros": (list of strings) Beneficial clauses.
+        - "suggested_negotiations": (list of strings) How to improve the contract.
+        - "overall_risk_score": (integer) 1 to 10.
 
-        #agentic call , we expect structured reasoning 
-        chat_completion = self.client.chat.completions.create(
+        IMPORTANT: Do not return the schema. Return the actual analysis populated with data from the contract.
+        ONLY return the JSON object. No conversational text.
+        """
+
+        response = self.client.chat.completions.create(
             messages=[
-                {'role':'system', 'content': system_prompt},
-                {'role':'user', 'content': user_prompt}
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Analyze this contract:\n\n{contract_content}"}
             ],
             model=self.model,
-            temperature=0.1  #so that it stay more consistent and factual output
+            response_format={"type": "json_object"},
+            temperature=0.1
         )
 
-        return chat_completion.choices[0].message.content
+        # 1. Get the raw string content
+        content_string = response.choices[0].message.content
+        
+        # 2. Parse the string into a Python Dictionary
+        analysis_dict = json.loads(content_string)
+        
+        # 3. Validation: This is where Pydantic checks if the AI followed instructions
+        # If the AI missed a field, this line will catch it!
+        return ContractAuditReport(**analysis_dict)

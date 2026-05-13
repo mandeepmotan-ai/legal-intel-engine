@@ -43,7 +43,7 @@ def run_test():
         print(masked_data)
         print(f'---------------------------------------- Masked Data End -------------------------------\n\n\n\n')
 
-        contract_reasoning = ai_brain.analyze_contract(masked_data)
+        contract_reasoning = ai_brain.analyze_contract_structured(masked_data)
         print(f'AI Lawyer :    \n\n{contract_reasoning}')
 
 
