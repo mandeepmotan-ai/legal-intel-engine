@@ -11,7 +11,7 @@ def run_test():
     ai_brain = ContractBrain()      #initialize brain to access integrated LLM using groq
 
     # point to a pdf file
-    test_pdf_path = "data/raw/sample.doc"
+    test_pdf_path = "data/raw/sample.pdf"
 
     if not os.path.exists(test_pdf_path):
         print(f"Error: Please place a pdf file at {test_pdf_path}")

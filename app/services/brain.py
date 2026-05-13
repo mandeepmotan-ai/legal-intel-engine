@@ -10,7 +10,7 @@ class ContractBrain():
         self.client = Groq(api_key=os.getenv('GROQ_API_KEY'))
         
         #we use llama4 Scout for it's high speed reasoning 
-        self.model = "llama-4-scout-17b-16e-instruct"
+        self.model = "meta-llama/llama-4-scout-17b-16e-instruct"
 
     def analyze_contract(self, contract_content: str):
         system_prompt = """
