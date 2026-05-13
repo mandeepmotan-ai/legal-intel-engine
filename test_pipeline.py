@@ -1,15 +1,17 @@
 import os 
 from app.services.parser import DocumentParser
 from app.services.protector import PrivacyShield
+from app.services.brain import ContractBrain
 
 def run_test():
-    #1. initialize our parser
-    parser = DocumentParser()
+    parser = DocumentParser()       #initialize our parser
 
-    shield_masker = PrivacyShield()
+    shield_masker = PrivacyShield()    #initialize our PII masker using presidio
 
-    #2. point to a pdf file
-    test_pdf_path = "data/raw/sample.pdf"
+    ai_brain = ContractBrain()      #initialize brain to access integrated LLM using groq
+
+    # point to a pdf file
+    test_pdf_path = "data/raw/sample.doc"
 
     if not os.path.exists(test_pdf_path):
         print(f"Error: Please place a pdf file at {test_pdf_path}")
@@ -18,10 +20,10 @@ def run_test():
     print(f'Starting to parse: {test_pdf_path}...')
 
     try: 
-        #3. time to use the parser we wrote in older file
+        # use the parser 
         processed_doc = parser.parse(test_pdf_path)
 
-        #4. inspect the results
+        # inspect the results
         print("\n--- METADATA ---")
         print(f'Filename: {processed_doc.metadata.filename}')
         print(f'Page count: {processed_doc.metadata.page_count}')
@@ -32,11 +34,17 @@ def run_test():
 
         print(f'\n Sucess! The document was converted to markdown.')
 
+        print(f'---------------------------------------- Parsing Ended -------------------------------\n\n\n\n')
+
         print(f"Starting to mask PII...")
 
         masked_data = shield_masker.mask_sensitive_data(processed_doc.content)
 
         print(masked_data)
+        print(f'---------------------------------------- Masked Data End -------------------------------\n\n\n\n')
+
+        contract_reasoning = ai_brain.analyze_contract(masked_data)
+        print(f'AI Lawyer :    \n\n{contract_reasoning}')
 
 
 
