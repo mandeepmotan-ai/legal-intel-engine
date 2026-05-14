@@ -51,3 +51,26 @@ class ContractBrain():
         # 3. Validation: This is where Pydantic checks if the AI followed instructions
         # If the AI missed a field, this line will catch it!
         return ContractAuditReport(**analysis_dict)
+    
+
+    def answer_question(self, question: str, context_chunks: list):
+        #join the relevant chunks we found in the Vector DB
+        context_text = "\n---\n".join([res.document for res in context_chunks]])
+
+        system_prompt = """
+        You are a legal Assistant. Use the following excerpts from a contract to answer user's question.
+        Simply if there answer is not in the given context, just simply say you dont know.
+
+        CONTEXT : {context_text}
+        """
+
+        response = self.client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": question}
+            ],
+            model=self.model,
+            temperature=0.1
+        )
+        return response.choices[0].message.content
+
