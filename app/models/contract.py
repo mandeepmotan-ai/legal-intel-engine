@@ -34,6 +34,11 @@ class ContractAuditReport(BaseModel):
     negotiation_points: List[str] = Field(description="Ready-to-use points for negotiation")
     risk_score: int = Field(description="Overall risk from 1-10")
     
+class ValidationFeedback(BaseModel):
+    """Feedback from Agent B to Agent A."""
+    is_valid: bool = Field(description="True if the report is accurate and legally sound")
+    errors: List[str] = Field(description="List of specific hallucinations or legal inaccuracies")
+    improvement_suggestions: Optional[str] = Field(description="Instructions on how to fix the report")
 
 
     

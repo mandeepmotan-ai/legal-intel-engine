@@ -2,7 +2,8 @@ import os
 from groq import Groq
 from dotenv import load_dotenv 
 import json
-from app.models.contract import ContractAuditReport
+from app.models.contract import ContractAuditReport, ValidationFeedback
+
 
 load_dotenv(override=True)
 
@@ -17,8 +18,12 @@ class ContractBrain():
         Performs a comprehensive 8-point audit with an Indian Legal POV.
         """
         system_prompt = """
-            You are a Master Legal Auditor specialized in the Indian Contract Act, 1872.
-            Analyze the provided contract and return a strictly structured JSON report.
+            You are a Master Legal Auditor. Provide a COMPREHENSIVE EXECUTIVE SUMMARY.
+            The summary must be at least 3-4 paragraphs and cover:
+            1. THE PARTIES: Who exactly is involved.
+            2. CORE OBLIGATIONS: What is being promised (the meat of the contract).
+            3. FINANCIAL TERMS: Payments, penalties, and taxes.
+            4. DURATION & TERMINATION: When it starts, when it ends, and how to get out
 
             STRICT ADHERENCE TO TRUTH:
             1. ONLY extract information explicitly stated or clearly implied by the text.
@@ -84,3 +89,48 @@ class ContractBrain():
             temperature=0.1
         )
         return response.choices[0].message.content
+
+
+    def validate_audit(self, contract_content: str, generated_report: str) -> ValidationFeedback:
+        system_prompt = """
+        You are a Supreme Court Legal Auditor. Your task is to verify an Audit Report against the original Contract.
+
+        PRIVACY NOTICE:
+        The contract text uses placeholders like <PERSON>, <LOCATION>, and <PHONE>. 
+        These are INTENTIONAL for privacy. DO NOT flag these as errors or missing information.
+
+        STRICT JSON STRUCTURE:
+        Return ONLY a JSON object with these keys:
+        - "is_valid": (boolean) True if the report accurately reflects the contract.
+        - "errors": (list of strings) List specific factual hallucinations. If none, return [].
+        - "improvement_suggestions": (string) How to fix the report. If no improvements needed, return an empty string "".
+
+        RULES:
+        1. The "errors" field MUST be a list of simple strings.
+        2. No conversational filler. No trailing words. ONLY the JSON block.
+
+        IMPORTANT:
+        - The contract uses placeholders like <PERSON_1>. These are INTENTIONAL for privacy. 
+        - DO NOT flag them as errors.
+        - DO NOT append the word "null" or any text outside the JSON block.
+        """
+
+        user_input = f"CONTRACT:\n{contract_content}\n\nREPORT:\n{generated_report}"
+
+        response = self.client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_input}
+            ],
+            model=self.model,
+            response_format={"type": "json_object"},
+            temperature=0.0 
+        )
+        
+        data = json.loads(response.choices[0].message.content)
+        
+        # Safety check: Ensure the model didn't miss the suggestions field
+        if "improvement_suggestions" not in data:
+            data["improvement_suggestions"] = ""
+
+        return ValidationFeedback(**data)
