@@ -18,12 +18,21 @@ class ContractRisk(BaseModel):
     risk_level: str = Field(description="High, Medium or Low")
     explanation: str = Field(description="Why this is a risk and how to fix it")
 
+class ImportantDate(BaseModel):
+    event: str = Field(description="The event (e.g., Expiry, Payment)")
+    date: str = Field(description="The date found in the contract")
+
 class ContractAuditReport(BaseModel):
-    summary: str = Field(description="A brief summary of the contract")
-    risks: List[ContractRisk]
-    pros: List[str] = Field(description="List of clauses that benefit the user")
-    suggested_negotiations: List[str]
-    overall_risk_score: int = Field(description="A score from 1 to 10")
+    summary: str = Field(description="Plain English summary for a non-lawyer")
+    pros: List[str] = Field(description="Advantages for the user")
+    cons: List[str] = Field(description="Disadvantages or risks")
+    red_flags: List[str] = Field(description="One-sided or predatory clauses")
+    important_dates: List[ImportantDate]
+    missing_clauses: List[str] = Field(description="Standard protections that are absent")
+    unfair_terms: List[str] = Field(description="Terms that might be legally invalid/unfair")
+    indian_law_check: str = Field(description="POV on how this fits Indian Legal System (e.g., Stamp Act, Arbitration)")
+    negotiation_points: List[str] = Field(description="Ready-to-use points for negotiation")
+    risk_score: int = Field(description="Overall risk from 1-10")
     
 
 

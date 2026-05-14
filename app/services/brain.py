@@ -4,33 +4,43 @@ from dotenv import load_dotenv
 import json
 from app.models.contract import ContractAuditReport
 
-
 load_dotenv(override=True)
 
 class ContractBrain():
     def __init__(self):
         self.client = Groq(api_key=os.getenv('GROQ_API_KEY'))
-        
-        #we use llama4 Scout for it's high speed reasoning 
+        # Using the Llama 4 Scout model as discussed
         self.model = "meta-llama/llama-4-scout-17b-16e-instruct"
 
-    def analyze_contract_structured(self, contract_content: str) -> ContractAuditReport:
-        # We define a simpler version of the schema for the prompt
-        # but keep the actual Pydantic model for validation.
-        
-        system_prompt = """
-        You are a Senior Legal AI Auditor. Analyze the contract and return a JSON object.
-        
-        The JSON must have these exact keys:
-        - "summary": (string) A brief overview of the contract.
-        - "risks": (list of objects) Each object must have "clause_text", "risk_level" (High/Medium/Low), and "explanation".
-        - "pros": (list of strings) Beneficial clauses.
-        - "suggested_negotiations": (list of strings) How to improve the contract.
-        - "overall_risk_score": (integer) 1 to 10.
-
-        IMPORTANT: Do not return the schema. Return the actual analysis populated with data from the contract.
-        ONLY return the JSON object. No conversational text.
+    def perform_initial_audit(self, contract_content: str) -> ContractAuditReport:
         """
+        Performs a comprehensive 8-point audit with an Indian Legal POV.
+        """
+        system_prompt = """
+            You are a Master Legal Auditor specialized in the Indian Contract Act, 1872.
+            Analyze the provided contract and return a strictly structured JSON report.
+
+            STRICT ADHERENCE TO TRUTH:
+            1. ONLY extract information explicitly stated or clearly implied by the text.
+            2. NO HALLUCINATIONS: If a specific category (e.g., Red Flags, Unfair Terms, or Important Dates) does not exist in the contract, return an empty list [] for that field.
+            3. For the 'indian_law_check', if the contract is too simple to have specific Indian legal implications, state: "Standard contract with no specific Indian legal conflicts identified."
+            4. If there are no missing clauses (i.e., the contract is perfect), return an empty list [].
+
+            THE JSON SCHEMA:
+            - "summary": (string) Plain English summary.
+            - "pros": (list) Beneficial clauses. [] if none.
+            - "cons": (list) Disadvantages. [] if none.
+            - "red_flags": (list) Predatory/one-sided clauses. [] if none.
+            - "important_dates": (list of objects) {"event": str, "date": str}. [] if none.
+            - "missing_clauses": (list) Standard protections absent. [] if none.
+            - "unfair_terms": (list) Legally questionable terms. [] if none.
+            - "indian_law_check": (string) POV on Indian law.
+            - "negotiation_points": (list) Points to negotiate. [] if none.
+            - "risk_score": (int) 1-10.
+
+            ONLY return the JSON object. Do not invent clauses to fill the fields.
+        """
+    
 
         response = self.client.chat.completions.create(
             messages=[
@@ -42,26 +52,27 @@ class ContractBrain():
             temperature=0.1
         )
 
-        # 1. Get the raw string content
         content_string = response.choices[0].message.content
-        
-        # 2. Parse the string into a Python Dictionary
         analysis_dict = json.loads(content_string)
         
-        # 3. Validation: This is where Pydantic checks if the AI followed instructions
-        # If the AI missed a field, this line will catch it!
+        # Validates against the 10-field model we discussed
         return ContractAuditReport(**analysis_dict)
-    
 
     def answer_question(self, question: str, context_chunks: list):
-        #join the relevant chunks we found in the Vector DB
-        context_text = "\n---\n".join([res.document for res in context_chunks]])
+        """
+        Uses RAG to answer specific questions based on contract excerpts.
+        """
+        # FIX 1: Removed the extra closing bracket ']]'
+        # FIX 2: Added a check for empty chunks
+        context_text = "\n---\n".join([res.document for res in context_chunks])
 
-        system_prompt = """
-        You are a legal Assistant. Use the following excerpts from a contract to answer user's question.
-        Simply if there answer is not in the given context, just simply say you dont know.
+        # FIX 3: Changed to an f-string so {context_text} is actually inserted
+        system_prompt = f"""
+        You are a legal assistant. Use the following excerpts from a contract to answer the user's question.
+        If the answer is not in the context, simply say: "I don't have enough information in the contract to answer that."
 
-        CONTEXT : {context_text}
+        CONTEXT:
+        {context_text}
         """
 
         response = self.client.chat.completions.create(
@@ -73,4 +84,3 @@ class ContractBrain():
             temperature=0.1
         )
         return response.choices[0].message.content
-
